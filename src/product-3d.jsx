@@ -668,6 +668,173 @@ const buildWraparoundLabel = ({ cfg, pack, radius, height, thetaDeg = 170, yOffs
   return group;
 };
 
+// ── Pulmoll Pastille Dose ────────────────────────────────────────
+// Flache runde Dose — Design liegt auf dem DECKEL (Kreisfläche oben),
+// nicht auf den Seiten. Festes Pulmoll-Branding wird immer als Canvas-
+// Overlay gerendert; das KI-Bild (cfg._bgImage) dient als Hintergrund.
+
+const PULMOLL_RED = '#c8102e';
+
+const drawPulmollTopCanvas = (cfg, { transparent = false } = {}) => {
+  const S = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = S; canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const cx = S / 2;
+
+  // Kreisförmiger Clip
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cx, S / 2 - 2, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (!transparent) {
+    // Obere Zone: etwas helleres Rot
+    ctx.fillStyle = '#d4152f';
+    ctx.fillRect(0, 0, S, S * 0.57);
+    // Untere Zone: Pulmoll-Rot
+    ctx.fillStyle = PULMOLL_RED;
+    ctx.fillRect(0, S * 0.57, S, S * 0.43);
+  }
+
+  // ── "DIE PASTILLE" ──
+  ctx.fillStyle = 'rgba(255,255,255,0.93)';
+  ctx.font = `500 ${Math.round(S * 0.058)}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('D I E   P A S T I L L E', cx, S * 0.17);
+
+  // ── SVG-Overlay: Pulmoll-Schriftzug + Trennband ──
+  // SVG viewBox: 978.4 × 321.3 → Seitenverhältnis ~3.04 : 1
+  const svg = cfg._pulmollOverlay;
+  if (svg) {
+    const drawW = S * 0.84;
+    const drawH = drawW * (321.3 / 978.4); // ≈ 142 px
+    const drawX = (S - drawW) / 2;
+    const drawY = S * 0.27;               // mittig in der oberen Hälfte
+    ctx.drawImage(svg, drawX, drawY, drawW, drawH);
+  } else {
+    // Fallback ohne SVG: Text + Streifen
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold italic ${Math.round(S * 0.23)}px Georgia, serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Pulmoll', cx, S * 0.40);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, S * 0.555, S, S * 0.026);
+  }
+
+  // ── Icon: Kräuterzweig (links) + Honigdipper (rechts) ──
+  const iconY = S * 0.725;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.round(S * 0.017);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Kräuterzweig
+  ctx.save();
+  ctx.translate(cx - S * 0.09, iconY);
+  ctx.rotate(-0.28);
+  ctx.beginPath(); ctx.moveTo(0, S * 0.07); ctx.lineTo(0, -S * 0.07); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-S * 0.05, -S * 0.018, -S * 0.038, S * 0.028);
+  ctx.quadraticCurveTo(-S * 0.01, S * 0.01, 0, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -S * 0.028);
+  ctx.quadraticCurveTo(S * 0.05, -S * 0.046, S * 0.038, 0);
+  ctx.quadraticCurveTo(S * 0.01, -S * 0.005, 0, -S * 0.028); ctx.stroke();
+  ctx.restore();
+
+  // Honigdipper
+  ctx.save();
+  ctx.translate(cx + S * 0.09, iconY);
+  ctx.rotate(0.28);
+  ctx.beginPath(); ctx.moveTo(0, -S * 0.07); ctx.lineTo(0, S * 0.07); ctx.stroke();
+  const rw = S * 0.03;
+  for (let i = 0; i < 4; i++) {
+    const ry = S * 0.008 + i * S * 0.026;
+    ctx.beginPath(); ctx.moveTo(-rw, ry); ctx.lineTo(rw, ry); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(0, S * 0.038, rw, 0, Math.PI); ctx.stroke();
+  ctx.restore();
+
+  // ── "CLASSIC" ──
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.round(S * 0.072)}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CLASSIC', cx, S * 0.876);
+
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  tex.anisotropy = 8;
+  if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+  return tex;
+};
+
+const buildPulmoll = (cfg) => {
+  const group = new THREE.Group();
+  const red = new THREE.Color(PULMOLL_RED);
+
+  const r = 1.72, h = 0.48;
+  const lipR = r * 1.025, lipH = 0.09;
+
+  // Dosenkörper (Seiten — metallisch rot)
+  const bodyGeo = new THREE.CylinderGeometry(r, r, h, 64, 1);
+  const body = new THREE.Mesh(bodyGeo, stdMat(red, { rough: 0.22, metal: 0.65 }));
+  body.castShadow = true; body.receiveShadow = true;
+  group.add(body);
+
+  // Deckellippe (leicht breiter)
+  const lipGeo = new THREE.CylinderGeometry(lipR, lipR, lipH, 64, 1);
+  const lip = new THREE.Mesh(lipGeo, stdMat(new THREE.Color('#e0d8d8'), { rough: 0.18, metal: 0.72 }));
+  lip.position.y = h / 2 + lipH / 2;
+  lip.castShadow = true;
+  group.add(lip);
+
+  // Deckeloberfläche — hier liegt das Design
+  const topY = h / 2 + lipH + 0.003;
+  const hasBg = !!(cfg && cfg._bgImage);
+  const labelGroup = new THREE.Group();
+  labelGroup.name = '__foofab_label__';
+  labelGroup.rotation.x = -Math.PI / 2; // XY → XZ (flach auf dem Deckel)
+  labelGroup.position.y = topY;
+
+  if (hasBg) {
+    // KI-Bild als Hintergrund-Schicht
+    const bgTex = new THREE.Texture(cfg._bgImage);
+    bgTex.needsUpdate = true; bgTex.anisotropy = 8;
+    if (THREE.sRGBEncoding) bgTex.encoding = THREE.sRGBEncoding;
+    const bgMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(lipR, 96),
+      new THREE.MeshStandardMaterial({ map: bgTex, roughness: 0.28, metalness: 0.08 })
+    );
+    labelGroup.add(bgMesh);
+  }
+
+  // Pulmoll-Branding-Overlay (transparent wenn KI-Bild vorhanden)
+  const brandTex = drawPulmollTopCanvas(cfg, { transparent: hasBg });
+  const brandMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(lipR * (hasBg ? 1.002 : 1), 96),
+    new THREE.MeshStandardMaterial({
+      map: brandTex, roughness: 0.28, metalness: 0.08,
+      transparent: hasBg, alphaTest: 0.01,
+    })
+  );
+  labelGroup.add(brandMesh);
+  group.add(labelGroup);
+
+  // Bodenplatte (Schatten)
+  const botGeo = new THREE.CircleGeometry(r, 64);
+  const bot = new THREE.Mesh(botGeo, stdMat(red, { rough: 0.4, metal: 0.5 }));
+  bot.rotation.x = Math.PI / 2;
+  bot.position.y = -h / 2;
+  group.add(bot);
+
+  return group;
+};
+
 // ───────────────────────────────────────────────────────────────────
 // Component
 // ───────────────────────────────────────────────────────────────────
@@ -679,6 +846,7 @@ const BUILDERS = {
   tube:     buildTube,
   bar:      buildBar,
   calendar: buildCalendar,
+  pulmoll:  buildPulmoll,
 };
 
 const ThreeProductPreview = ({ cfg, tilt, onTiltChange }) => {
@@ -803,11 +971,11 @@ const ThreeProductPreview = ({ cfg, tilt, onTiltChange }) => {
       }
     };
 
-    const build = (bgImage, logoImage) => {
+    const build = (bgImage, logoImage, pulmollOverlay) => {
       if (cancelled) return;
       disposePrev();
       const builder = BUILDERS[cfg.pack] || BUILDERS.pouch;
-      const obj = builder({ ...cfg, _bgImage: bgImage, _logoImage: logoImage });
+      const obj = builder({ ...cfg, _bgImage: bgImage, _logoImage: logoImage, _pulmollOverlay: pulmollOverlay });
       obj.traverse((c) => {
         if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
       });
@@ -825,8 +993,9 @@ const ThreeProductPreview = ({ cfg, tilt, onTiltChange }) => {
       img.src = src;
     });
 
-    Promise.all([loadImg(cfg.labelBgUrl), loadImg(cfg.logo)])
-      .then(([bg, logo]) => build(bg, logo));
+    const pulmollSrc = cfg.pack === 'pulmoll' ? 'assets/pulmoll-overlay.svg' : null;
+    Promise.all([loadImg(cfg.labelBgUrl), loadImg(cfg.logo), loadImg(pulmollSrc)])
+      .then(([bg, logo, pulmollOverlay]) => build(bg, logo, pulmollOverlay));
 
     return () => { cancelled = true; };
   }, [cfg.pack, cfg.color, cfg.name, cfg.handle, cfg.flavor, cfg.weight, cfg.labelBgUrl, cfg.typoStyle, cfg.logo, cfg.typoColor, cfg.overlayTone, cfg.overlayOpacity]);

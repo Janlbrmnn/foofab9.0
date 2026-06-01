@@ -19,12 +19,13 @@ const FLAVORS = [
 ];
 
 const PACKAGES = [
-  { id: 'pouch',    label: 'doypack',   bases: ['gummies', 'hard candy'] },
-  { id: 'jar',      label: 'glas',      bases: ['gummies', 'hard candy'] },
-  { id: 'tin',      label: 'dose',      bases: ['gummies', 'hard candy'] },
-  { id: 'tube',     label: 'tube',      bases: ['hard candy'] },
-  { id: 'calendar', label: 'kalender',  bases: ['adventskalender'] },
-  { id: 'bar',      label: 'riegel-box', bases: ['bars'] },
+  { id: 'pouch',    label: 'doypack',      bases: ['gummies', 'hard candy'] },
+  { id: 'jar',      label: 'glas',         bases: ['gummies', 'hard candy'] },
+  { id: 'tin',      label: 'dose',         bases: ['gummies', 'hard candy'] },
+  { id: 'pulmoll',  label: 'pulmoll dose', bases: ['hard candy'] },
+  { id: 'tube',     label: 'tube',         bases: ['hard candy'] },
+  { id: 'calendar', label: 'kalender',     bases: ['adventskalender'] },
+  { id: 'bar',      label: 'riegel-box',   bases: ['bars'] },
 ];
 
 // Pick a sensible default pack for each base category
