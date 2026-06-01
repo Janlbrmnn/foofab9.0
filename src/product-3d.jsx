@@ -974,10 +974,37 @@ const ThreeProductPreview = ({ cfg, tilt, onTiltChange }) => {
       img.src = src;
     });
 
+    // SVGs exported from Illustrator have no width/height — only viewBox.
+    // Browsers report naturalWidth=0 for such SVGs, so ctx.drawImage() draws
+    // nothing. Fix: fetch as text, inject explicit dimensions, load via blob URL.
+    const loadSvg = (src, svgW, svgH) => new Promise((resolve) => {
+      if (!src) return resolve(null);
+      fetch(src)
+        .then(r => r.text())
+        .then(text => {
+          const patched = text.replace(/(<svg\b[^>]*?)(\/?>)/, (_, attrs, end) => {
+            if (!/\bwidth=/.test(attrs)) attrs += ` width="${svgW}"`;
+            if (!/\bheight=/.test(attrs)) attrs += ` height="${svgH}"`;
+            return attrs + end;
+          });
+          const blob = new Blob([patched], { type: 'image/svg+xml;charset=utf-8' });
+          const url  = URL.createObjectURL(blob);
+          const img  = new Image();
+          img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+          img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+          img.src = url;
+        })
+        .catch(() => resolve(null));
+    });
+
     const pulmollSrc        = cfg.pack === 'pulmoll' ? 'assets/pulmoll-overlay.svg'         : null;
     const pulmollMinimalSrc = cfg.pack === 'pulmoll' ? 'assets/pulmoll-overlay-minimal.svg' : null;
-    Promise.all([loadImg(cfg.labelBgUrl), loadImg(cfg.logo), loadImg(pulmollSrc), loadImg(pulmollMinimalSrc)])
-      .then(([bg, logo, pulmollOverlay, pulmollMinimal]) => build(bg, logo, pulmollOverlay, pulmollMinimal));
+    Promise.all([
+      loadImg(cfg.labelBgUrl),
+      loadImg(cfg.logo),
+      loadSvg(pulmollSrc,        1987.4, 667.1),
+      loadSvg(pulmollMinimalSrc,  978.4, 321.3),
+    ]).then(([bg, logo, pulmollOverlay, pulmollMinimal]) => build(bg, logo, pulmollOverlay, pulmollMinimal));
 
     return () => { cancelled = true; };
   }, [cfg.pack, cfg.color, cfg.name, cfg.handle, cfg.flavor, cfg.weight, cfg.labelBgUrl, cfg.typoStyle, cfg.logo, cfg.typoColor, cfg.overlayTone, cfg.overlayOpacity]);
