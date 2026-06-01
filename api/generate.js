@@ -37,13 +37,11 @@ export default async function handler(req, res) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseModalities: ['TEXT', 'IMAGE'],
-            // "512" | "1K" | "2K" | "4K" — default ohne Angabe ist 4K → sehr langsam.
-            // 1K (1024×1024) reicht für ein rundes Label auf einem 3D-Tin völlig.
-            responseFormat: {
-              image: {
-                aspectRatio: '1:1',
-                imageSize: '1K',
-              },
+            // imageConfig steuert Ausgabegröße — "512" | "1K" | "2K" | "4K"
+            // Default ohne Angabe ist 4K → sehr langsam.
+            // 1K (1024px) reicht für ein rundes Label auf dem 3D-Tin völlig.
+            imageConfig: {
+              imageSize: '1K',
             },
           },
         }),
