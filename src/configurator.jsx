@@ -22,7 +22,7 @@ const PACKAGES = [
   { id: 'pouch',    label: 'doypack',      bases: ['gummies', 'hard candy'] },
   { id: 'jar',      label: 'glas',         bases: ['gummies', 'hard candy'] },
   { id: 'tin',      label: 'dose',         bases: ['gummies', 'hard candy'] },
-  { id: 'pulmoll',  label: 'pulmoll dose', bases: ['hard candy'] },
+  { id: 'pulmoll',  label: 'pulmoll dose', bases: ['hard candy', 'pulmoll'] },
   { id: 'tube',     label: 'tube',         bases: ['hard candy'] },
   { id: 'calendar', label: 'kalender',     bases: ['adventskalender'] },
   { id: 'bar',      label: 'riegel-box',   bases: ['bars'] },
@@ -32,6 +32,7 @@ const PACKAGES = [
 const DEFAULT_PACK_FOR_BASE = {
   'gummies': 'pouch',
   'hard candy': 'tin',
+  'pulmoll': 'pulmoll',
   'adventskalender': 'calendar',
   'bars': 'bar',
 };
@@ -1220,6 +1221,7 @@ const Configurator = () => {
     { c: '#7a9a3a', l: 'dill green' },
     { c: '#f2c94c', l: 'lemon' },
     { c: '#c85250', l: 'paprika' },
+    { c: '#c8102e', l: 'pulmoll rot' },
     { c: '#8b5a3c', l: 'amber' },
     { c: '#e8e6e0', l: 'milk' },
     { c: '#3a3937', l: 'squid ink' },
@@ -1279,12 +1281,16 @@ const Configurator = () => {
             <div>
               <label style={{ color: 'var(--fg-3)', fontSize: 'calc(10px * var(--scale))', letterSpacing: '0.2em' }}>wähle deine basis-kategorie</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginTop: 16 }}>
-                {['gummies', 'adventskalender', 'hard candy', 'bars'].map(b => (
+                {['gummies', 'pulmoll', 'hard candy', 'adventskalender', 'bars'].map(b => (
                   <button key={b}
                     onClick={() => {
                       // When switching base, auto-swap to a compatible package
                       const newPack = DEFAULT_PACK_FOR_BASE[b] || cfg.pack;
-                      setCfg({ ...cfg, base: b, pack: newPack });
+                      // Auto-set Pulmoll red when selecting pulmoll, restore green when leaving
+                      const newColor = b === 'pulmoll' ? '#c8102e'
+                        : cfg.color === '#c8102e' ? '#7a9a3a'
+                        : cfg.color;
+                      setCfg({ ...cfg, base: b, pack: newPack, color: newColor });
                     }}
                     style={{
                       textAlign: 'left',
@@ -1299,6 +1305,7 @@ const Configurator = () => {
                     <div style={{ fontSize: 'calc(20px * var(--scale))', fontWeight: 400, marginBottom: 6, letterSpacing: '-0.01em' }}>{b}</div>
                     <div style={{ color: 'var(--fg-3)', fontSize: 'calc(11px * var(--scale))' }}>
                       {b === 'gummies' && 'black forest · moq 1'}
+                      {b === 'pulmoll' && 'die pastille · classic'}
                       {b === 'adventskalender' && '24 türchen · saisonal'}
                       {b === 'hard candy' && 'krefeld · à la pulmoll'}
                       {b === 'bars' && 'bavaria · bio-qualität'}
