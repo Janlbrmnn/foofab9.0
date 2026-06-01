@@ -675,63 +675,60 @@ const buildWraparoundLabel = ({ cfg, pack, radius, height, thetaDeg = 170, yOffs
 
 const PULMOLL_RED = '#c8102e';
 
-const drawPulmollTopCanvas = (cfg, { transparent = false } = {}) => {
+// Composites alles auf EINEM Canvas: Hintergrundfarbe → AI-Artwork (optional)
+// → Pulmoll-SVG-Overlay → Custom-Name-Text. Ein Canvas, ein Mesh, kein Z-Fighting.
+const drawPulmollTopCanvas = (cfg) => {
   const S = 512;
   const canvas = document.createElement('canvas');
   canvas.width = S; canvas.height = S;
   const ctx = canvas.getContext('2d');
 
-  // Kreisförmiger Clip
+  // Kreisförmiger Clip für alle Layer
   ctx.save();
   ctx.beginPath();
   ctx.arc(S / 2, S / 2, S / 2 - 1, 0, Math.PI * 2);
   ctx.clip();
 
-  // Hintergrundfarbe: cfg.color (Picker) oder Pulmoll-Rot
+  // ── Layer 1: Hintergrundfarbe ──────────────────────────────────────
   const bgColor = (cfg && cfg.color) || PULMOLL_RED;
+  // Leicht hellere obere Hälfte für Tiefenwirkung
+  const tmp = document.createElement('canvas');
+  tmp.width = 1; tmp.height = 1;
+  const tc = tmp.getContext('2d');
+  tc.fillStyle = bgColor; tc.fillRect(0, 0, 1, 1);
+  const px = tc.getImageData(0, 0, 1, 1).data;
+  ctx.fillStyle = `rgb(${Math.min(255,px[0]+20)},${Math.min(255,px[1]+10)},${Math.min(255,px[2]+10)})`;
+  ctx.fillRect(0, 0, S, S * 0.56);
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, S * 0.56, S, S * 0.44);
 
-  if (!transparent) {
-    // Leicht hellere Variante für die obere Hälfte (Tiefenwirkung)
-    const c = document.createElement('canvas');
-    c.width = 1; c.height = 1;
-    const cx2 = c.getContext('2d');
-    cx2.fillStyle = bgColor;
-    cx2.fillRect(0, 0, 1, 1);
-    const d = cx2.getImageData(0, 0, 1, 1).data;
-    const lighterR = Math.min(255, d[0] + 20);
-    const lighterG = Math.min(255, d[1] + 10);
-    const lighterB = Math.min(255, d[2] + 10);
-    ctx.fillStyle = `rgb(${lighterR},${lighterG},${lighterB})`;
-    ctx.fillRect(0, 0, S, S * 0.56);
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, S * 0.56, S, S * 0.44);
+  // ── Layer 2: AI-Artwork (cover-fit in Kreis) ───────────────────────
+  const bgImg = cfg && cfg._bgImage;
+  if (bgImg && (bgImg.naturalWidth || bgImg.width)) {
+    const iw = bgImg.naturalWidth || bgImg.width;
+    const ih = bgImg.naturalHeight || bgImg.height;
+    const scale = Math.max(S / iw, S / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(bgImg, (S - dw) / 2, (S - dh) / 2, dw, dh);
   }
 
-  // Welches SVG-Overlay?
-  // cfg.pulmollName: eigener Produktname (nur für Pulmoll, unabhängig von cfg.name)
-  // — pulmollName leer/undefined → volles Overlay (DIE PASTILLE + Schriftzug + Band + Icon + CLASSIC)
-  // — pulmollName gesetzt      → minimales Overlay (Schriftzug + Band) + Name oben statt DIE PASTILLE
+  // ── Layer 3: Pulmoll-SVG-Overlay ───────────────────────────────────
+  // pulmollName leer → volles Overlay | gesetzt → minimal + Name oben
   const pulmollName = (cfg && cfg.pulmollName && cfg.pulmollName.trim()) || '';
   const hasCustomName = pulmollName.length > 0;
   const svg = hasCustomName ? cfg._pulmollMinimal : cfg._pulmollOverlay;
 
   if (svg) {
-    // Beide SVGs: volle Breite → Band geht bis an den Rand
-    // Minimal: viewBox 978.4 × 321.3 | Voll: viewBox 1987.4 × 667.1
-    const svgW = hasCustomName ? 978.4 : 1987.4;
-    const svgH = hasCustomName ? 321.3 : 667.1;
+    const svgW = 978.4;
+    const svgH = hasCustomName ? 321.3 : 667.2;
     const drawW = S;
-    const drawH = S * (svgH / svgW);           // ~168px für beide
-    const drawX = 0;
-    const drawY = (S - drawH) / 2;             // ~172px — SVG mittig vertikal
+    const drawH = S * (svgH / svgW);
+    const drawY = (S - drawH) / 2;
+    ctx.drawImage(svg, 0, drawY, drawW, drawH);
 
-    ctx.drawImage(svg, drawX, drawY, drawW, drawH);
-
-    // Beim minimalen SVG: Produktname dort einzeichnen, wo "DIE PASTILLE" wäre —
-    // also knapp oberhalb des Schriftzug-Bereichs (oberes Drittel der Kreisfläche).
+    // Produktname oben statt „DIE PASTILLE"
     if (hasCustomName) {
-      // Zielbereich: zwischen Kreisrand oben und SVG-Oberkante → Mitte davon
-      const textY = drawY * 0.62;             // ~107px ≈ oberes Drittel
+      const textY = drawY * 0.62;
       ctx.fillStyle = 'rgba(255,255,255,0.95)';
       ctx.font = `700 ${Math.round(S * 0.052)}px Arial, Helvetica, sans-serif`;
       ctx.textAlign = 'center';
@@ -753,7 +750,6 @@ const drawPulmollTopCanvas = (cfg, { transparent = false } = {}) => {
 
 const buildPulmoll = (cfg) => {
   const group = new THREE.Group();
-  // Farbe aus cfg.color (Picker) oder Pulmoll-Standard-Rot
   const tinColor = new THREE.Color((cfg && cfg.color) || PULMOLL_RED);
 
   const r = 1.72, h = 0.85;
@@ -773,46 +769,21 @@ const buildPulmoll = (cfg) => {
   group.add(lip);
 
   const topY = h / 2 + lipH + 0.003;
-  const hasBg = !!(cfg && cfg._bgImage);
 
+  // Deckel-Label: alles composited auf einem einzigen Canvas → ein Mesh,
+  // kein Z-Fighting, keine Transparency-Probleme.
   const labelGroup = new THREE.Group();
   labelGroup.name = '__foofab_label__';
   labelGroup.rotation.x = -Math.PI / 2;
   labelGroup.position.y = topY;
 
-  if (hasBg) {
-    // Layer 1: KI-Artwork als Hintergrund (z = 0)
-    const bgTex = new THREE.Texture(cfg._bgImage);
-    bgTex.needsUpdate = true; bgTex.anisotropy = 8;
-    if (THREE.sRGBEncoding) bgTex.encoding = THREE.sRGBEncoding;
-    coverTexture(bgTex, cfg._bgImage, 1); // 1:1 für Kreis
-    const bgMesh = new THREE.Mesh(
-      new THREE.CircleGeometry(lipR, 96),
-      new THREE.MeshStandardMaterial({ map: bgTex, roughness: 0.28, metalness: 0.08 })
-    );
-    bgMesh.position.z = 0;
-    labelGroup.add(bgMesh);
-  }
-
-  // Layer 2: Pulmoll-Branding-Overlay
-  // — kein AI-Bg: normales opakes Mesh (depthWrite: true), sonst überschreibt
-  //   die Dose den Kreis weil kein Depth-Wert geschrieben wird.
-  // — mit AI-Bg: transparent + depthWrite: false + renderOrder: 1 damit das
-  //   Overlay sauber über dem Artwork liegt ohne Z-Fighting.
-  const brandTex = drawPulmollTopCanvas(cfg, { transparent: hasBg });
-  const brandMesh = new THREE.Mesh(
+  const topTex = drawPulmollTopCanvas(cfg);
+  const topMesh = new THREE.Mesh(
     new THREE.CircleGeometry(lipR, 96),
-    new THREE.MeshStandardMaterial({
-      map: brandTex,
-      roughness: 0.28, metalness: 0.08,
-      transparent: hasBg,
-      depthWrite: !hasBg,
-    })
+    new THREE.MeshStandardMaterial({ map: topTex, roughness: 0.28, metalness: 0.08, depthWrite: true })
   );
-  brandMesh.renderOrder = hasBg ? 1 : 0;
-  // Kleiner Z-Offset damit kein Z-Fighting mit der Deckellippe (lokales Z = Welt-Y)
-  brandMesh.position.z = hasBg ? 0.04 : 0.002;
-  labelGroup.add(brandMesh);
+  topMesh.position.z = 0.002;
+  labelGroup.add(topMesh);
   group.add(labelGroup);
 
   // Bodenplatte
@@ -1011,7 +982,7 @@ const ThreeProductPreview = ({ cfg, tilt, onTiltChange }) => {
     Promise.all([
       loadImg(cfg.labelBgUrl),
       loadImg(cfg.logo),
-      loadSvg(pulmollSrc,        1987.4, 667.1),
+      loadSvg(pulmollSrc,         978.4, 667.2),
       loadSvg(pulmollMinimalSrc,  978.4, 321.3),
     ]).then(([bg, logo, pulmollOverlay, pulmollMinimal]) => build(bg, logo, pulmollOverlay, pulmollMinimal));
 
