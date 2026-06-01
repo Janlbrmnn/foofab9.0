@@ -43,9 +43,10 @@ export default async function handler(req, res) {
 
     const data = await upstream.json();
 
-    // Ablo may nest the URL under different keys depending on version
-    const imageUrl = data?.url || data?.imageUrl || data?.image_url
-      || data?.images?.[0]?.url || data?.images?.[0];
+    // Ablo response shape: { success: true, data: { images: [{ url: "..." }] } }
+    const imageUrl = data?.data?.images?.[0]?.url
+      || data?.url || data?.imageUrl || data?.image_url
+      || data?.images?.[0]?.url;
 
     if (!imageUrl || typeof imageUrl !== 'string') {
       res.status(500).json({ error: 'no image URL in Ablo response: ' + JSON.stringify(data) });
